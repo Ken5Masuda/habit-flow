@@ -13,7 +13,7 @@ HabitFlow - 毎日の習慣を記録し、ストリーク（連続日数）や�
 
 ## 現在のフェーズ
 
-**Phase 1: プロジェクト初期化 + 認証**
+**Phase 2: データベース + 習慣CRUD** (Phase 1 完了)
 
 詳細は [docs/PHASES.md](./docs/PHASES.md) を参照
 
