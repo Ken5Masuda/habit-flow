@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogOut, Sun, Moon, Home, ListTodo, Calendar, TrendingUp, Target, Flame, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { formatDate, getToday, calculateStreak, getPastDays } from "@/lib/date-utils";
-import type { Habit, HabitLog } from "@/types/database";
+import { getToday, calculateStreak, getPastDays } from "@/lib/date-utils";
+import type { Habit } from "@/types/database";
 
 interface HabitStats {
   habit: Habit;

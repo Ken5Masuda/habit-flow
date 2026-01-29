@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { AuthGuard, useAuth } from "@/components/auth/auth-guard";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,

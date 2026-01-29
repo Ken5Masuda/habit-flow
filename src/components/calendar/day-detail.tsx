@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Minus, Plus, X } from "lucide-react";
+import { Check, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatDateShort, getDayOfWeek, parseDate } from "@/lib/date-utils";
+import { getDayOfWeek, parseDate } from "@/lib/date-utils";
 import type { Habit, HabitLog } from "@/types/database";
 
 interface DayDetailProps {

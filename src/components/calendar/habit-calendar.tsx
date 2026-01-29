@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate, getDayOfWeek } from "@/lib/date-utils";
+import { formatDate } from "@/lib/date-utils";
 
 interface DayData {
   date: string;

@@ -1,25 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Sun, Moon, CheckCircle2, Calendar, TrendingUp, Zap } from "lucide-react";
 
+// SSR対応のuseLayoutEffect
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export default function LandingPage() {
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  useEffect(() => {
-    // テーマ初期化
+  // テーマ初期化（レイアウト計算前に同期的に実行）
+  useIsomorphicLayoutEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const isDark = savedTheme === "dark" || (!savedTheme && prefersDark);
     setIsDarkMode(isDark);
     document.documentElement.classList.toggle("dark", isDark);
+  }, []);
 
+  useEffect(() => {
     // 認証状態チェック
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();

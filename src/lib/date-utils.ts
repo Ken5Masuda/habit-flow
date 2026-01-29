@@ -82,7 +82,7 @@ export function calculateStreak(
   }
 
   let streak = 0;
-  let currentDate = sortedDates[0] === today ? todayDate : yesterday;
+  const currentDate = sortedDates[0] === today ? todayDate : yesterday;
   const dateSet = new Set(completedDates);
 
   while (dateSet.has(formatDate(currentDate))) {
