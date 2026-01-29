@@ -13,7 +13,7 @@ HabitFlow - 毎日の習慣を記録し、ストリーク（連続日数）や�
 
 ## 現在のフェーズ
 
-**Phase 3: 記録機能 + ダッシュボード** (Phase 1, 2 完了)
+**Phase 4: カレンダー + 統計** (Phase 1, 2, 3 完了)
 
 詳細は [docs/PHASES.md](./docs/PHASES.md) を参照
 

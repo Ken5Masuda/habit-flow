@@ -2,18 +2,28 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AuthGuard, useAuth } from "@/components/auth/auth-guard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, Sun, Moon, ListTodo, Plus, ArrowRight } from "lucide-react";
+import { LogOut, Sun, Moon, ListTodo, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import type { Habit } from "@/types/database";
+import { getToday, getPastDays, calculateStreak } from "@/lib/date-utils";
+import { TodayHabits } from "@/components/dashboard/today-habits";
+import { WeeklyChart } from "@/components/dashboard/weekly-chart";
+import { StreakCard } from "@/components/dashboard/streak-card";
+import type { Habit, HabitLog } from "@/types/database";
 
 function DashboardContent() {
   const { user, signOut } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [todayLogs, setTodayLogs] = useState<HabitLog[]>([]);
+  const [weeklyData, setWeeklyData] = useState<{ date: string; completed: number; total: number }[]>([]);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  const today = getToday();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -30,31 +40,164 @@ function DashboardContent() {
     localStorage.setItem("theme", newValue ? "dark" : "light");
   };
 
-  const fetchHabits = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
 
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("habits")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false });
+      const past7Days = getPastDays(7);
+      const startDate = past7Days[0];
 
-      if (error) throw error;
-      setHabits(data || []);
+      // 習慣と過去7日間のログを取得
+      const [habitsRes, logsRes] = await Promise.all([
+        supabase
+          .from("habits")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_archived", false)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("habit_logs")
+          .select("*")
+          .eq("user_id", user.id)
+          .gte("date", startDate)
+          .lte("date", today),
+      ]);
+
+      if (habitsRes.error) throw habitsRes.error;
+      if (logsRes.error) throw logsRes.error;
+
+      const fetchedHabits = habitsRes.data || [];
+      const fetchedLogs = logsRes.data || [];
+
+      setHabits(fetchedHabits);
+
+      // 今日のログをフィルタ
+      const todaysLogs = fetchedLogs.filter((log) => log.date === today);
+      setTodayLogs(todaysLogs);
+
+      // 週間データを計算
+      const weekData = past7Days.map((date) => {
+        const dayLogs = fetchedLogs.filter((log) => log.date === date);
+        const completed = fetchedHabits.filter((habit) => {
+          const log = dayLogs.find((l) => l.habit_id === habit.id);
+          if (!log) return false;
+          if (habit.goal_type === "boolean") return log.completed;
+          return (log.value || 0) >= habit.goal_value;
+        }).length;
+
+        return {
+          date,
+          completed,
+          total: fetchedHabits.length,
+        };
+      });
+      setWeeklyData(weekData);
+
+      // ストリーク計算
+      // すべての習慣が完了した日を集める
+      const allCompletedDates: string[] = [];
+      past7Days.forEach((date) => {
+        const dayLogs = fetchedLogs.filter((log) => log.date === date);
+        const allCompleted = fetchedHabits.every((habit) => {
+          const log = dayLogs.find((l) => l.habit_id === habit.id);
+          if (!log) return false;
+          if (habit.goal_type === "boolean") return log.completed;
+          return (log.value || 0) >= habit.goal_value;
+        });
+        if (allCompleted && fetchedHabits.length > 0) {
+          allCompletedDates.push(date);
+        }
+      });
+
+      const streak = calculateStreak(allCompletedDates, today);
+      setCurrentStreak(streak);
+      setLongestStreak(Math.max(streak, longestStreak));
     } catch (error) {
-      console.error("Error fetching habits:", error);
+      console.error("Error fetching data:", error);
+      toast.error("データの取得に失敗しました");
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, today, longestStreak]);
 
   useEffect(() => {
-    fetchHabits();
-  }, [fetchHabits]);
+    fetchData();
+  }, [fetchData]);
 
-  const activeHabits = habits.filter((h) => !h.is_archived);
+  // 習慣の完了状態を切り替え
+  const handleToggleComplete = async (habitId: string, completed: boolean) => {
+    if (!user) return;
+
+    try {
+      const existingLog = todayLogs.find((log) => log.habit_id === habitId);
+
+      if (existingLog) {
+        const { error } = await supabase
+          .from("habit_logs")
+          .update({ completed })
+          .eq("id", existingLog.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("habit_logs").insert({
+          habit_id: habitId,
+          user_id: user.id,
+          date: today,
+          completed,
+        });
+
+        if (error) throw error;
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error("Error updating log:", error);
+      toast.error("更新に失敗しました");
+    }
+  };
+
+  // 数値を更新
+  const handleUpdateValue = async (habitId: string, value: number) => {
+    if (!user) return;
+
+    try {
+      const habit = habits.find((h) => h.id === habitId);
+      const completed = value >= (habit?.goal_value || 1);
+      const existingLog = todayLogs.find((log) => log.habit_id === habitId);
+
+      if (existingLog) {
+        const { error } = await supabase
+          .from("habit_logs")
+          .update({ value, completed })
+          .eq("id", existingLog.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("habit_logs").insert({
+          habit_id: habitId,
+          user_id: user.id,
+          date: today,
+          value,
+          completed,
+        });
+
+        if (error) throw error;
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error("Error updating value:", error);
+      toast.error("更新に失敗しました");
+    }
+  };
+
+  const todayCompleted = habits.filter((habit) => {
+    const log = todayLogs.find((l) => l.habit_id === habit.id);
+    if (!log) return false;
+    if (habit.goal_type === "boolean") return log.completed;
+    return (log.value || 0) >= habit.goal_value;
+  }).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,7 +207,7 @@ function DashboardContent() {
           <h1 className="text-xl font-bold text-foreground">HabitFlow</h1>
           <div className="flex items-center gap-2">
             <Link href="/habits">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" title="習慣管理">
                 <ListTodo className="size-5" />
               </Button>
             </Link>
@@ -80,106 +223,47 @@ function DashboardContent() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-4">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-foreground">こんにちは！</h2>
-          <p className="text-muted-foreground">{user?.email}</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">こんにちは！</h2>
+            <p className="text-muted-foreground">{user?.email}</p>
+          </div>
+          <Link href="/habits">
+            <Button className="gap-2">
+              <Plus className="size-4" />
+              習慣を追加
+            </Button>
+          </Link>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>今日の習慣</CardTitle>
-              <CardDescription>本日のタスク</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">0 / {activeHabits.length}</p>
-              <p className="text-sm text-muted-foreground">
-                {activeHabits.length === 0 ? "習慣を追加しましょう" : "Phase 3で記録機能を実装"}
-              </p>
-            </CardContent>
-          </Card>
+        {isLoading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            <StreakCard
+              currentStreak={currentStreak}
+              longestStreak={longestStreak}
+              todayCompleted={todayCompleted}
+              todayTotal={habits.length}
+            />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>現在のストリーク</CardTitle>
-              <CardDescription>連続達成日数</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">0日</p>
-              <p className="text-sm text-muted-foreground">Phase 3で実装予定</p>
-            </CardContent>
-          </Card>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Today's Habits */}
+              <TodayHabits
+                habits={habits}
+                logs={todayLogs}
+                onToggleComplete={handleToggleComplete}
+                onUpdateValue={handleUpdateValue}
+              />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>週間達成率</CardTitle>
-              <CardDescription>過去7日間</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">0%</p>
-              <p className="text-sm text-muted-foreground">Phase 3で実装予定</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Habits Section */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>習慣管理</CardTitle>
-                <CardDescription>
-                  {isLoading
-                    ? "読み込み中..."
-                    : `${activeHabits.length}個の習慣を管理中`}
-                </CardDescription>
-              </div>
-              <Link href="/habits">
-                <Button className="gap-2">
-                  <Plus className="size-4" />
-                  習慣を管理
-                  <ArrowRight className="size-4" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex h-24 items-center justify-center">
-                  <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
-                </div>
-              ) : activeHabits.length === 0 ? (
-                <div className="flex h-24 flex-col items-center justify-center text-center">
-                  <p className="text-muted-foreground">まだ習慣がありません</p>
-                  <Link href="/habits" className="mt-2">
-                    <Button variant="outline" size="sm">
-                      習慣を追加する
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {activeHabits.slice(0, 5).map((habit) => (
-                    <div
-                      key={habit.id}
-                      className="flex items-center justify-between rounded-lg border border-border p-3"
-                    >
-                      <span className="font-medium">{habit.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {habit.frequency === "daily" ? "毎日" : "毎週"}
-                      </span>
-                    </div>
-                  ))}
-                  {activeHabits.length > 5 && (
-                    <p className="text-center text-sm text-muted-foreground">
-                      他 {activeHabits.length - 5} 件の習慣
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              {/* Weekly Chart */}
+              <WeeklyChart data={weeklyData} />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
