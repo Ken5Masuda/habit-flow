@@ -14,8 +14,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HabitFlow - 習慣トラッカー",
+  title: {
+    default: "HabitFlow - 習慣トラッカー",
+    template: "%s | HabitFlow",
+  },
   description: "毎日の習慣を記録し、ストリークやグラフで継続状況を可視化するパーソナル習慣トラッカー",
+  keywords: ["習慣", "トラッカー", "習慣管理", "ストリーク", "目標達成", "自己改善"],
+  authors: [{ name: "HabitFlow" }],
+  openGraph: {
+    title: "HabitFlow - 習慣トラッカー",
+    description: "毎日の習慣を記録し、ストリークやグラフで継続状況を可視化",
+    type: "website",
+    locale: "ja_JP",
+  },
+  twitter: {
+    card: "summary",
+    title: "HabitFlow - 習慣トラッカー",
+    description: "毎日の習慣を記録し、ストリークやグラフで継続状況を可視化",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
