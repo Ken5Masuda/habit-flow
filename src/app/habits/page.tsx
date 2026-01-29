@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Filter, Sun, Moon, LogOut, LayoutDashboard } from "lucide-react";
+import { Plus, Filter, Sun, Moon, LogOut, LayoutDashboard, Calendar, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { AuthGuard, useAuth } from "@/components/auth/auth-guard";
@@ -188,8 +188,14 @@ function HabitsContent() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <h1 className="text-xl font-bold text-foreground">HabitFlow</h1>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+            <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")} title="ダッシュボード">
               <LayoutDashboard className="size-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => router.push("/calendar")} title="カレンダー">
+              <Calendar className="size-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => router.push("/stats")} title="統計">
+              <BarChart3 className="size-5" />
             </Button>
             <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
               {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}

@@ -5,29 +5,31 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { AuthGuard, useAuth } from "@/components/auth/auth-guard";
 import { Button } from "@/components/ui/button";
-import { LogOut, Sun, Moon, ListTodo, Plus, Calendar, BarChart3 } from "lucide-react";
+import { LogOut, Sun, Moon, Home, ListTodo } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { getToday, getPastDays, calculateStreak } from "@/lib/date-utils";
-import { TodayHabits } from "@/components/dashboard/today-habits";
-import { WeeklyChart } from "@/components/dashboard/weekly-chart";
-import { StreakCard } from "@/components/dashboard/streak-card";
+import { formatDate, getToday } from "@/lib/date-utils";
+import { HabitCalendar } from "@/components/calendar/habit-calendar";
+import { DayDetail } from "@/components/calendar/day-detail";
 import type { Habit, HabitLog } from "@/types/database";
 
-function DashboardContent() {
+function CalendarContent() {
   const { user, signOut } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [todayLogs, setTodayLogs] = useState<HabitLog[]>([]);
-  const [weeklyData, setWeeklyData] = useState<{ date: string; completed: number; total: number }[]>([]);
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [longestStreak, setLongestStreak] = useState(0);
+  const [logs, setLogs] = useState<HabitLog[]>([]);
+  const [calendarData, setCalendarData] = useState<
+    { date: string; completed: number; total: number }[]
+  >([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDateLogs, setSelectedDateLogs] = useState<HabitLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const today = getToday();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches;
     const isDark = savedTheme === "dark" || (!savedTheme && prefersDark);
     setIsDarkMode(isDark);
     document.documentElement.classList.toggle("dark", isDark);
@@ -45,10 +47,11 @@ function DashboardContent() {
 
     setIsLoading(true);
     try {
-      const past7Days = getPastDays(7);
-      const startDate = past7Days[0];
+      // 過去90日間のデータを取得
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 90);
+      const startDateStr = formatDate(startDate);
 
-      // 習慣と過去7日間のログを取得
       const [habitsRes, logsRes] = await Promise.all([
         supabase
           .from("habits")
@@ -60,7 +63,7 @@ function DashboardContent() {
           .from("habit_logs")
           .select("*")
           .eq("user_id", user.id)
-          .gte("date", startDate)
+          .gte("date", startDateStr)
           .lte("date", today),
       ]);
 
@@ -71,14 +74,21 @@ function DashboardContent() {
       const fetchedLogs = logsRes.data || [];
 
       setHabits(fetchedHabits);
+      setLogs(fetchedLogs);
 
-      // 今日のログをフィルタ
-      const todaysLogs = fetchedLogs.filter((log) => log.date === today);
-      setTodayLogs(todaysLogs);
+      // カレンダー用のデータを作成
+      const dateMap = new Map<
+        string,
+        { date: string; completed: number; total: number }
+      >();
 
-      // 週間データを計算
-      const weekData = past7Days.map((date) => {
-        const dayLogs = fetchedLogs.filter((log) => log.date === date);
+      // 過去90日間の各日付のデータを計算
+      for (let i = 0; i <= 90; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = formatDate(d);
+
+        const dayLogs = fetchedLogs.filter((log) => log.date === dateStr);
         const completed = fetchedHabits.filter((habit) => {
           const log = dayLogs.find((l) => l.habit_id === habit.id);
           if (!log) return false;
@@ -86,51 +96,41 @@ function DashboardContent() {
           return (log.value || 0) >= habit.goal_value;
         }).length;
 
-        return {
-          date,
+        dateMap.set(dateStr, {
+          date: dateStr,
           completed,
           total: fetchedHabits.length,
-        };
-      });
-      setWeeklyData(weekData);
-
-      // ストリーク計算
-      // すべての習慣が完了した日を集める
-      const allCompletedDates: string[] = [];
-      past7Days.forEach((date) => {
-        const dayLogs = fetchedLogs.filter((log) => log.date === date);
-        const allCompleted = fetchedHabits.every((habit) => {
-          const log = dayLogs.find((l) => l.habit_id === habit.id);
-          if (!log) return false;
-          if (habit.goal_type === "boolean") return log.completed;
-          return (log.value || 0) >= habit.goal_value;
         });
-        if (allCompleted && fetchedHabits.length > 0) {
-          allCompletedDates.push(date);
-        }
-      });
+      }
 
-      const streak = calculateStreak(allCompletedDates, today);
-      setCurrentStreak(streak);
-      setLongestStreak(Math.max(streak, longestStreak));
+      setCalendarData(Array.from(dateMap.values()));
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("データの取得に失敗しました");
     } finally {
       setIsLoading(false);
     }
-  }, [user, today, longestStreak]);
+  }, [user, today]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  // 日付選択時
+  const handleSelectDate = (date: string) => {
+    setSelectedDate(date);
+    const dateLogs = logs.filter((log) => log.date === date);
+    setSelectedDateLogs(dateLogs);
+  };
+
   // 習慣の完了状態を切り替え
   const handleToggleComplete = async (habitId: string, completed: boolean) => {
-    if (!user) return;
+    if (!user || !selectedDate) return;
 
     try {
-      const existingLog = todayLogs.find((log) => log.habit_id === habitId);
+      const existingLog = selectedDateLogs.find(
+        (log) => log.habit_id === habitId
+      );
 
       if (existingLog) {
         const { error } = await supabase
@@ -143,7 +143,7 @@ function DashboardContent() {
         const { error } = await supabase.from("habit_logs").insert({
           habit_id: habitId,
           user_id: user.id,
-          date: today,
+          date: selectedDate,
           completed,
         });
 
@@ -151,6 +151,9 @@ function DashboardContent() {
       }
 
       await fetchData();
+      // 選択中の日付のログを更新
+      const updatedLogs = logs.filter((log) => log.date === selectedDate);
+      setSelectedDateLogs(updatedLogs);
     } catch (error) {
       console.error("Error updating log:", error);
       toast.error("更新に失敗しました");
@@ -159,12 +162,14 @@ function DashboardContent() {
 
   // 数値を更新
   const handleUpdateValue = async (habitId: string, value: number) => {
-    if (!user) return;
+    if (!user || !selectedDate) return;
 
     try {
       const habit = habits.find((h) => h.id === habitId);
       const completed = value >= (habit?.goal_value || 1);
-      const existingLog = todayLogs.find((log) => log.habit_id === habitId);
+      const existingLog = selectedDateLogs.find(
+        (log) => log.habit_id === habitId
+      );
 
       if (existingLog) {
         const { error } = await supabase
@@ -177,7 +182,7 @@ function DashboardContent() {
         const { error } = await supabase.from("habit_logs").insert({
           habit_id: habitId,
           user_id: user.id,
-          date: today,
+          date: selectedDate,
           value,
           completed,
         });
@@ -192,13 +197,6 @@ function DashboardContent() {
     }
   };
 
-  const todayCompleted = habits.filter((habit) => {
-    const log = todayLogs.find((l) => l.habit_id === habit.id);
-    if (!log) return false;
-    if (habit.goal_type === "boolean") return log.completed;
-    return (log.value || 0) >= habit.goal_value;
-  }).length;
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -206,23 +204,22 @@ function DashboardContent() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <h1 className="text-xl font-bold text-foreground">HabitFlow</h1>
           <div className="flex items-center gap-2">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="icon" title="ダッシュボード">
+                <Home className="size-5" />
+              </Button>
+            </Link>
             <Link href="/habits">
               <Button variant="ghost" size="icon" title="習慣管理">
                 <ListTodo className="size-5" />
               </Button>
             </Link>
-            <Link href="/calendar">
-              <Button variant="ghost" size="icon" title="カレンダー">
-                <Calendar className="size-5" />
-              </Button>
-            </Link>
-            <Link href="/stats">
-              <Button variant="ghost" size="icon" title="統計">
-                <BarChart3 className="size-5" />
-              </Button>
-            </Link>
             <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+              {isDarkMode ? (
+                <Sun className="size-5" />
+              ) : (
+                <Moon className="size-5" />
+              )}
             </Button>
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="size-5" />
@@ -233,17 +230,11 @@ function DashboardContent() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-4">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">こんにちは！</h2>
-            <p className="text-muted-foreground">{user?.email}</p>
-          </div>
-          <Link href="/habits">
-            <Button className="gap-2">
-              <Plus className="size-4" />
-              習慣を追加
-            </Button>
-          </Link>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-foreground">カレンダー</h2>
+          <p className="text-muted-foreground">
+            日付をクリックして詳細を確認できます
+          </p>
         </div>
 
         {isLoading ? (
@@ -251,38 +242,33 @@ function DashboardContent() {
             <div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Stats Cards */}
-            <StreakCard
-              currentStreak={currentStreak}
-              longestStreak={longestStreak}
-              todayCompleted={todayCompleted}
-              todayTotal={habits.length}
+          <div className="max-w-md mx-auto">
+            <HabitCalendar
+              data={calendarData}
+              onSelectDate={handleSelectDate}
+              selectedDate={selectedDate}
             />
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Today's Habits */}
-              <TodayHabits
-                habits={habits}
-                logs={todayLogs}
-                onToggleComplete={handleToggleComplete}
-                onUpdateValue={handleUpdateValue}
-              />
-
-              {/* Weekly Chart */}
-              <WeeklyChart data={weeklyData} />
-            </div>
           </div>
         )}
+
+        <DayDetail
+          date={selectedDate}
+          habits={habits}
+          logs={selectedDateLogs}
+          onClose={() => setSelectedDate(null)}
+          onToggleComplete={handleToggleComplete}
+          onUpdateValue={handleUpdateValue}
+          isToday={selectedDate === today}
+        />
       </main>
     </div>
   );
 }
 
-export default function DashboardPage() {
+export default function CalendarPage() {
   return (
     <AuthGuard>
-      <DashboardContent />
+      <CalendarContent />
     </AuthGuard>
   );
 }
