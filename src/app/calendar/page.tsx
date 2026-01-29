@@ -5,6 +5,12 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { AuthGuard, useAuth } from "@/components/auth/auth-guard";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { LogOut, Sun, Moon, Home, ListTodo } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatDate, getToday } from "@/lib/date-utils";
@@ -203,28 +209,54 @@ function CalendarContent() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <h1 className="text-xl font-bold text-foreground">HabitFlow</h1>
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="icon" title="ダッシュボード">
-                <Home className="size-5" />
-              </Button>
-            </Link>
-            <Link href="/habits">
-              <Button variant="ghost" size="icon" title="習慣管理">
-                <ListTodo className="size-5" />
-              </Button>
-            </Link>
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {isDarkMode ? (
-                <Sun className="size-5" />
-              ) : (
-                <Moon className="size-5" />
-              )}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="size-5" />
-            </Button>
-          </div>
+          <TooltipProvider>
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/dashboard">
+                    <Button variant="ghost" size="icon">
+                      <Home className="size-5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>ダッシュボード</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/habits">
+                    <Button variant="ghost" size="icon">
+                      <ListTodo className="size-5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>習慣管理</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
+                    {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isDarkMode ? "ライトモード" : "ダークモード"}に切替</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={signOut}>
+                    <LogOut className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>ログアウト</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </header>
 

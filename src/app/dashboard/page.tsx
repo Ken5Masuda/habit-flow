@@ -5,13 +5,20 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { AuthGuard, useAuth } from "@/components/auth/auth-guard";
 import { Button } from "@/components/ui/button";
-import { LogOut, Sun, Moon, ListTodo, Plus, Calendar, BarChart3 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { LogOut, Sun, Moon, ListTodo, Plus, Calendar, BarChart3, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getToday, getPastDays, calculateStreak } from "@/lib/date-utils";
 import { TodayHabits } from "@/components/dashboard/today-habits";
 import { WeeklyChart } from "@/components/dashboard/weekly-chart";
 import { StreakCard } from "@/components/dashboard/streak-card";
 import type { Habit, HabitLog } from "@/types/database";
+import { WelcomeDialog } from "@/components/onboarding/welcome-dialog";
 
 function DashboardContent() {
   const { user, signOut } = useAuth();
@@ -205,31 +212,83 @@ function DashboardContent() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <h1 className="text-xl font-bold text-foreground">HabitFlow</h1>
-          <div className="flex items-center gap-2">
-            <Link href="/habits">
-              <Button variant="ghost" size="icon" title="習慣管理">
-                <ListTodo className="size-5" />
-              </Button>
-            </Link>
-            <Link href="/calendar">
-              <Button variant="ghost" size="icon" title="カレンダー">
-                <Calendar className="size-5" />
-              </Button>
-            </Link>
-            <Link href="/stats">
-              <Button variant="ghost" size="icon" title="統計">
-                <BarChart3 className="size-5" />
-              </Button>
-            </Link>
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="size-5" />
-            </Button>
-          </div>
+          <TooltipProvider>
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/habits">
+                    <Button variant="ghost" size="icon">
+                      <ListTodo className="size-5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>習慣管理</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/calendar">
+                    <Button variant="ghost" size="icon">
+                      <Calendar className="size-5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>カレンダー</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/stats">
+                    <Button variant="ghost" size="icon">
+                      <BarChart3 className="size-5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>統計</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/help">
+                    <Button variant="ghost" size="icon">
+                      <HelpCircle className="size-5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>使い方ガイド</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
+                    {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isDarkMode ? "ライトモード" : "ダークモード"}に切替</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={signOut}>
+                    <LogOut className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>ログアウト</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </header>
+
+      {/* Welcome Dialog for first-time users */}
+      <WelcomeDialog />
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl p-4">
@@ -238,12 +297,21 @@ function DashboardContent() {
             <h2 className="text-2xl font-bold text-foreground">こんにちは！</h2>
             <p className="text-muted-foreground">{user?.email}</p>
           </div>
-          <Link href="/habits">
-            <Button className="gap-2">
-              <Plus className="size-4" />
-              習慣を追加
-            </Button>
-          </Link>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/habits">
+                  <Button className="gap-2">
+                    <Plus className="size-4" />
+                    習慣を追加
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>新しい習慣を作成します</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {isLoading ? (

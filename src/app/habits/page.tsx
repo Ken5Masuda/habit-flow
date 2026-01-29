@@ -8,6 +8,12 @@ import { supabase } from "@/lib/supabase";
 import { AuthGuard, useAuth } from "@/components/auth/auth-guard";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -186,23 +192,60 @@ function HabitsContent() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <h1 className="text-xl font-bold text-foreground">HabitFlow</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")} title="ダッシュボード">
-              <LayoutDashboard className="size-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => router.push("/calendar")} title="カレンダー">
-              <Calendar className="size-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => router.push("/stats")} title="統計">
-              <BarChart3 className="size-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="size-5" />
-            </Button>
-          </div>
+          <TooltipProvider>
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+                    <LayoutDashboard className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>ダッシュボード</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => router.push("/calendar")}>
+                    <Calendar className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>カレンダー</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => router.push("/stats")}>
+                    <BarChart3 className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>統計</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
+                    {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isDarkMode ? "ライトモード" : "ダークモード"}に切替</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={signOut}>
+                    <LogOut className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>ログアウト</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </header>
 
